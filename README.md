@@ -1,5 +1,7 @@
 # CouchPotato :tv: :couch_and_lamp:
 
+<img src="logo.png" alt="Logo" width="200" height="200" style="float: right;"
+
 Welcome to the CouchPotato repository! We're here to revolutionize the way you consume media with an automated home entertainment system.
 
 ## About CouchPotato
