@@ -1,14 +1,16 @@
-# CouchPotato Pseudo Code
+# CouchPotato
 
-This document provides a high-level overview of how the CouchPotato application works. It's written in pseudo code, which is a plain-language description of the code's operations.
+This pseudo code outlines the primary functionality of the CouchPotato application. The application is designed to run continuously, monitor the couch's occupants, and adjust content and playback based on changes in occupancy.
 
-```plaintext
+```pseudo
 START CouchPotato
 
 CLASS User
     VARIABLE Name
     VARIABLE Preferences
     VARIABLE WatchHistory
+    VARIABLE LastContent
+    VARIABLE LastContentTimePosition
 
 CLASS Content
     VARIABLE Title
@@ -16,13 +18,13 @@ CLASS Content
     VARIABLE Platform
 
 CLASS StreamingPlatform
-    METHOD FetchContent(User)
+    METHOD FetchContent(Content)
     METHOD StreamContent(Content)
     METHOD PauseContent(Content)
-    METHOD ResumeContent(Content)
+    METHOD ResumeContent(User)
 
 CLASS UserRecognition
-    METHOD DetectUsers(): List<User>
+    METHOD DetectUsers(): list of User
     METHOD AuthenticateUser(User)
 
 CLASS SmartHomeIntegration
@@ -30,8 +32,8 @@ CLASS SmartHomeIntegration
     METHOD TurnOffTV()
 
 CLASS CouchPotatoApp
-    VARIABLE CurrentUsers: List<User>
-    VARIABLE StreamingPlatforms: List<StreamingPlatform>
+    VARIABLE CurrentUsers: list of User
+    VARIABLE StreamingPlatforms: list of StreamingPlatform
     VARIABLE SmartHome: SmartHomeIntegration
     VARIABLE CurrentContent: Content
 
@@ -42,12 +44,10 @@ CLASS CouchPotatoApp
             userRecognition.AuthenticateUser(user)
         SmartHome.ConnectToSmartHome(CurrentUsers)
 
-    METHOD UpdateUsersOnCouch()
-        CurrentUsers = UserRecognition.DetectUsers()
-
-    METHOD GetContentRecommendation(User)
-        FOR EACH platform IN StreamingPlatforms
-            Content = platform.FetchContent(user.Preferences)
+    METHOD GetContentRecommendation()
+        FOR EACH user IN CurrentUsers
+            FOR EACH platform IN StreamingPlatforms
+                Content = platform.FetchContent(user.Preferences)
         RETURN Content
 
     METHOD PreBufferContent(Content)
@@ -57,25 +57,38 @@ CLASS CouchPotatoApp
     METHOD PlayContent(Content)
         platform = GET platform for Content
         platform.StreamContent(Content)
+        CurrentContent = Content
 
-    METHOD PauseContent(Content)
-        platform = GET platform for Content
-        platform.PauseContent(Content)
+    METHOD PauseContentForUser(User)
+        platform = GET platform for CurrentContent
+        platform.PauseContent(CurrentContent)
+        User.LastContent = CurrentContent
+        User.LastContentTimePosition = CurrentContent.TimePosition
 
-    METHOD ResumeContent(Content)
-        platform = GET platform for Content
-        platform.ResumeContent(Content)
+    METHOD ResumeContentForUser(User)
+        platform = GET platform for User.LastContent
+        User.LastContentTimePosition = platform.ResumeContent(User)
 
-    METHOD ManageContentPlayback()
-        IF CurrentUsers is not empty
-            IF CurrentContent is not null and CurrentUsers does not contain user of CurrentContent
-                PauseContent(CurrentContent)
-            FOR EACH user IN CurrentUsers
-                IF user does not have content playing
-                    CurrentContent = GetContentRecommendation(user)
-                    PreBufferContent(CurrentContent)
-                    PlayContent(CurrentContent)
-        ELSE
-            IF CurrentContent is not null
-                PauseContent(CurrentContent)
+    METHOD MonitorCouch()
+        WHILE True
+            detectedUsers = UserRecognition.DetectUsers()
+            IF detectedUsers != CurrentUsers
+                HandleUserChange(detectedUsers)
+
+    METHOD HandleUserChange(detectedUsers)
+        FOR EACH user IN CurrentUsers NOT IN detectedUsers
+            PauseContentForUser(user)
+        FOR EACH user IN detectedUsers NOT IN CurrentUsers
+            AuthenticateUser(user)
+            ResumeContentForUser(user)
+        IF detectedUsers IS EMPTY
+            SmartHome.TurnOffTV()
+
+ON START of CouchPotatoApp
+    CouchPotatoApp.StartApp()
+    CouchPotatoApp.MonitorCouch()
+
+END CouchPotato
 ```
+
+This pseudo code takes into account continuous monitoring of the couch, changes in the number of users, pausing and resuming content, and turning off the TV when no users are detected.
